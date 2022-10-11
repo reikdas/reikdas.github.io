@@ -79,3 +79,17 @@ ul {
   list-style-type: "";
   padding-bottom: 10px;
 }
+
+.talk-title {
+  font-size: 1.17em;
+  font-weight: 600;
+}
+
+.talks li {
+  list-style-type: "";
+}
+
+.ta li {
+  list-style-type: "";
+  padding-left: 8px;
+}
