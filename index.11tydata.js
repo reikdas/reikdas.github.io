@@ -70,14 +70,6 @@ module.exports = {
         },
     ],
     drafts: [{
-            title: "Specializing Data Access in a Distributed File System",
-            authors: authorList([
-                me,
-                "Anxhelo Xhebraj",
-                "Tiark Rompf",
-            ]),
-        },
-        {
             title: "DiSh: Dynamic Shell-Script Distribution",
             authors: authorList([
                 "Tammam Mustafa",
