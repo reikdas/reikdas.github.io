@@ -26,6 +26,17 @@ function authorList(authors) {
 
 module.exports = {
     publications: [{
+            title: "DiSh: Dynamic Shell-Script Distribution",
+            link: null,
+            authors: authorList([
+                "Tammam Mustafa",
+                "Konstantinos Kallas",
+                me,
+                "Nikos Vasilakis",
+            ]),
+            conference: "20th USENIX Symposium on Networked Systems Design and Implementation (NSDI, 2023)",
+        },
+        {
             title: "AwkwardForth: accelerating Uproot with an internal DSL",
             link: "https://www.epj-conferences.org/articles/epjconf/abs/2021/05/epjconf_chep2021_03002/epjconf_chep2021_03002.html",
             authors: authorList([
@@ -69,15 +80,7 @@ module.exports = {
             conference: "24th International Conference on Computing in High-Energy and Nuclear Physics (CHEP 2019)",
         },
     ],
-    drafts: [{
-            title: "DiSh: Dynamic Shell-Script Distribution",
-            authors: authorList([
-                "Tammam Mustafa",
-                "Konstantinos Kallas",
-                me,
-                "Nikos Vasilakis",
-            ]),
-        },
+    drafts: [
     ],
     talks: [{
             title: "GSoC Experience - Enzyme",
