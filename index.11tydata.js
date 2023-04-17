@@ -27,7 +27,7 @@ function authorList(authors) {
 module.exports = {
     publications: [{
             title: "DiSh: Dynamic Shell-Script Distribution",
-            link: null,
+            link: "https://www.usenix.org/system/files/nsdi23-mustafa.pdf",
             authors: authorList([
                 "Tammam Mustafa",
                 "Konstantinos Kallas",
