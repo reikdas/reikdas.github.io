@@ -80,16 +80,7 @@ module.exports = {
             conference: "24th International Conference on Computing in High-Energy and Nuclear Physics (CHEP 2019)",
         },
     ],
-    drafts: [{
-            title: "Specializing Data Access in a Distributed File System",
-            authors: authorList([
-                me,
-                "Anxhelo Xhebraj",
-                "Supun Abeysinghe",
-                "Patrick Lafontaine",
-                "Tiark Rompf",
-            ]),
-        },
+    drafts: [,
     ],
     talks: [{
             title: "GSoC Experience - Enzyme",
