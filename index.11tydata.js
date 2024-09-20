@@ -25,7 +25,18 @@ function authorList(authors) {
 }
 
 module.exports = {
-    publications: [{
+    publications: [
+        {
+            title: "Specializing Data Access in a Distributed File System (Generative Pearl)",
+            link: "https://www.cs.purdue.edu/homes/rompf/papers/das-gpce24.pdf",
+            authors: authorList([
+                me,
+                "Anxhelo Xhebraj",
+                "Tiark Rompf",
+            ]),
+            conference: "23rd ACM SIGPLAN International Conference on Generative Programming: Concepts and Experiences (GPCE’24)",
+        },
+        {
             title: "DiSh: Dynamic Shell-Script Distribution",
             link: "https://www.usenix.org/system/files/nsdi23-mustafa.pdf",
             authors: authorList([
