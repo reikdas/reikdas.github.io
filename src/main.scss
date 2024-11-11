@@ -51,17 +51,17 @@ td {
 }
 
 .bio {
-    padding-right: 2.5%;
-    width: 63%;
-    vertical-align: center;
+  display: flex; 
+  flex-flow: wrap;
+  align-items: center;
+  justify-content: center;
 }
 
-.photo {
-    padding-left: 2.5%;
-    height: 20em;
-    width: 30%;
+@media (max-width: 800px) {
+  .bio {
+    flex-direction: column-reverse;
+  }
 }
-
 .self-author {
     @include bold;
 }
@@ -97,4 +97,11 @@ ul {
 .ta li {
     list-style-type: circle;
     margin-left: 13px;
+}
+
+.header {
+  display: flex;
+  flex-flow: wrap;
+  align-items: center;
+  justify-content: center;
 }
