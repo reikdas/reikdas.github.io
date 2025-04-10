@@ -94,6 +94,11 @@ module.exports = {
     drafts: [,
     ],
     talks: [{
+            title: "Specializing Data Access in a Distributed File System (Generative Pearl)",
+            link: "https://www.youtube.com/watch?v=YeWCPRXWIuA",
+            location: "GPCE, 2024",
+        },
+        {
             title: "GSoC Experience - Enzyme",
             link: "https://youtu.be/mxI9fYbpndI",
             location: "LLVM Developers' Meeting, 2021",
