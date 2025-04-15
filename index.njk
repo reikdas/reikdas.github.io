@@ -47,12 +47,45 @@
         My CV can be found 
         <a href=https://github.com/reikdas/CV/raw/master/academic-cv.pdf>here</a>.
         <br/><br/>
-        Send me an email if you want to give a talk at <a href="purduepl.github.io">PurPL</a> (Purdue University's Programming Languages Group).
+        Send me an email if you want to give a talk at <a href="https://purduepl.github.io/">PurPL</a> (Purdue University's Programming Languages Group).
         </p>
         <p style="width: 35%; text-align: center">
         <img src="assets/photo.png" style="width:80%;"/>
         </p>
     </div>
+    <h2>News</h2>
+    <div id="news-section" style="margin-left: 20px;>
+    <ul id="news-list">
+        {% for item in news %}
+            <li class="news-item{% if loop.index > 5 %} hidden{% endif %}">
+                <strong>{{ item.date }}</strong>: {{ item.title }}
+            </li>
+        {% endfor %}
+    </ul>
+    {% if news | length > 5 %}
+        <button id="toggle-news">Show More</button>
+    {% endif %}
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const toggleButton = document.getElementById("toggle-news");
+            const hiddenItems = document.querySelectorAll(".news-item.hidden");
+
+            if (toggleButton) {
+                toggleButton.addEventListener("click", function () {
+                    hiddenItems.forEach(item => item.classList.toggle("hidden"));
+                    toggleButton.textContent = toggleButton.textContent === "Show More" ? "Show Less" : "Show More";
+                });
+            }
+        });
+    </script>
+
+    <style>
+        .hidden {
+            display: none;
+        }
+    </style>
     <h2>Publications</h2>
     <ul class="publications">
       {% for pub in publications %}

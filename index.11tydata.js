@@ -25,6 +25,40 @@ function authorList(authors) {
 }
 
 module.exports = {
+    news:[
+        {
+            title: "Presenting poster about SABLE at MWPLS 2024.",
+            date: "10-28-2024",
+        },
+        {
+            title: "Took over as a student co-ordinator of the Purdue Programming Languages group.",
+            date: "08-29-2024",
+        },
+        {
+            title: "Our paper on specializing distributed storage accesses was accepted to GPCE 2024.",
+            date: "08-15-2024",
+        },
+        {
+            title: "I will be interning at Apple this summer.",
+            date: "12-24-2023",
+        },
+        {
+            title: "Our paper DiSh was accepted to NSDI 2023.",
+            date: "12-09-2022",
+        },
+        {
+            title: "Will be giving a talk at the LLVM Developers' Meeting 2022 about Enzyme.",
+            date: "11-07-2021",
+        },
+        {
+            title: "Awkward Array is on the front page of Hacker News!",
+            date: "12-16-2021",
+        },
+        {
+            title: "Will start my PhD at Purdue University in Fall 2021.",
+            date: "04-04-2021",
+        }
+    ],
     publications: [
         {
             title: "Specializing Data Access in a Distributed File System (Generative Pearl)",
