@@ -39,8 +39,8 @@ module.exports = {
             date: "08-15-2024",
         },
         {
-            title: "I will be interning at Apple this summer.",
-            date: "12-24-2023",
+            title: "I will be interning at Apple in summer 2023.",
+            date: "12-24-2022",
         },
         {
             title: "Our paper DiSh was accepted to NSDI 2023.",
