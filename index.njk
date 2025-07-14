@@ -113,5 +113,14 @@
     <li>CS 354 (Operating Systems) - Fall 2022, Spring 2023, Fall 2023, Spring 2024, Fall 2024</li>
     <li>CS 240 (Programming in C) - Fall 2021, Spring 2022</li>
     </ul>
+    
+    <h2>Featured</h2>
+    <ul class="misc">
+      {% for item in misc %}
+        <li class="misc-item">
+          <p><span class="misc-title"><a href={{ item.link }}>{{ item.title }}</a></span></p>
+        </li>
+      {% endfor %}
+    </ul>
   </body>
 </html>

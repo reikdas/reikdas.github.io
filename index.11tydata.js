@@ -183,4 +183,15 @@ module.exports = {
             location: "CMS Big Data Science Meeting, 2017",
         },
     ],
+    misc: [
+        {
+            title: "Preparing the Large Hadron Collider for a Data Deluge",
+            link: "https://iris-hep.org/2020/05/07/bei-wang-rse.html"
+        },
+        {
+            title: "Princeton leads efforts to develop national data training framework for high energy physics",
+            link: "https://www.princeton.edu/news/2019/08/19/princeton-leads-efforts-develop-national-data-training-framework-high-energy"
+        },
+        // Add more links here as needed
+    ],
 };
