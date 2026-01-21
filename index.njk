@@ -8,10 +8,6 @@
     <link rel="stylesheet" href="css/main.css">
   </head>
   <body>
-    <nav class="site-nav">
-      <a href="/">Home</a>
-      <a href="/blog/">Blog</a>
-    </nav>
     <div class="header">
       <h1 class="name" style="width: 100%; text-align: center">Pratyush Das</h1>
       <div class="email" style="width: 100%; text-align: center">das160@purdue.edu</div>
@@ -113,7 +109,7 @@
     I have been a TA for the following courses at Purdue University: 
     <ul class="ta">
     <li>CS 307 (Software Engineering) - Spring 2025, Fall 2025</li>
-    <li>CS 354 (Operating Systems) - Fall 2022, Spring 2023, Fall 2023, Spring 2024, Fall 2024</li>
+    <li>CS 354 (Operating Systems) - Fall 2022, Spring 2023, Fall 2023, Spring 2024, Fall 2024, Spring 2026</li>
     <li>CS 240 (Programming in C) - Fall 2021, Spring 2022</li>
     </ul>
     
@@ -124,6 +120,15 @@
           <p><span class="misc-title"><a href={{ item.link }}>{{ item.title }}</a></span></p>
         </li>
       {% endfor %}
+    </ul>
+    
+    <h2>Thoughts and notes</h2>
+    <ul class="misc">
+      {%- for post in collections.posts | reverse -%}
+        <li class="misc-item">
+          <p><span class="misc-title"><a href="{{ post.url }}">{{ post.data.title }}</a></span></p>
+        </li>
+      {%- endfor -%}
     </ul>
   </body>
 </html>

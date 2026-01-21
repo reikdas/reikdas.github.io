@@ -1,9 +1,20 @@
 const eleventySass = require("@grimlink/eleventy-plugin-sass");
 const sass = require("sass");
+const markdownIt = require("markdown-it");
+const markdownItFootnote = require("markdown-it-footnote");
 
 module.exports = function(eleventyConfig) {
     // set up Sass for compiling from *.scss to *.css
     eleventyConfig.addPlugin(eleventySass, { sass });
+
+    // Configure markdown-it with footnote support
+    const md = markdownIt({
+        html: true,
+        linkify: true,
+        typographer: true
+    }).use(markdownItFootnote);
+    
+    eleventyConfig.setLibrary("md", md);
 
     // Add a date filter for formatting dates
     eleventyConfig.addFilter("date", function(date, format) {
@@ -15,6 +26,12 @@ module.exports = function(eleventyConfig) {
             return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
         }
         return d.toLocaleDateString();
+    });
+
+    // Add a reverse filter for reversing arrays/collections
+    eleventyConfig.addFilter("reverse", function(array) {
+        if (!array) return [];
+        return array.slice().reverse();
     });
 
     // Include any files in assets/ directly in your website without modifying
@@ -37,7 +54,7 @@ module.exports = function(eleventyConfig) {
         // pathPrefix is used by 11ty's url filter - see
         // https://www.11ty.dev/docs/filters/url/ for where this is useful. It's
         // included here mainly so you know how to change it if you need to.
-        pathPrefix: "/personal-website-demo",
+        pathPrefix: "/",
         dir: {
             includes: "_templates",
             output: "_site",

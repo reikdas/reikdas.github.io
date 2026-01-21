@@ -9,10 +9,12 @@
     "license": "MIT",
     "author": "",
     "devDependencies": {
-        "@11ty/eleventy": "^1.0.0"
+        "@11ty/eleventy": "^1.0.0",
+        "markdown-it": "^14.0.0"
     },
     "dependencies": {
         "@grimlink/eleventy-plugin-sass": "^1.0.1",
+        "markdown-it-footnote": "^4.0.0",
         "sass": "^1.49.7"
     }
 }

@@ -1,11 +1,9 @@
 ---
 layout: blog-post.njk
 title: LLM Inference Primer
-description: An introduction to how transformer-based large language models perform inference, covering attention mechanisms, KV caching, and optimization techniques.
 date: 2026-01-21
 tags: posts
 ---
-
 We first need to understand how transformers[^2] work (the first part of this document).
 
 ## Sequence Representation
@@ -29,11 +27,13 @@ X =  [  ]  (seq_len × d_model)
 The pre-trained model provides weight matrices: **W_Q**, **W_K**, **W_V**, and **W_vocab**. These are constant for the entire inference. (How are they generated? There will be a training primer later :p)
 
 **Query, Key, and Value projections:**
+
 - Q = X · W_Q
-- K = X · W_K  
+- K = X · W_K
 - V = X · W_V
 
 **Attention computation:**
+
 - A = Q · K^T[^1]
 - A = mask(A)  (zero out A[i, j] where j > i - a future token j cannot contribute to a previous token i; this is required for correctness, not just performance)
 - A = softmax(A)  (normalize each row to sum to 1)
@@ -41,6 +41,7 @@ The pre-trained model provides weight matrices: **W_Q**, **W_K**, **W_V**, and *
 **Why softmax?** After softmax, each row of A sums to 1, meaning A[i, j] represents the fraction of token j's value vector that contributes to token i's representation.
 
 **Output:**
+
 - Z = A · V
 
 Z is the updated intermediate token representation.
@@ -56,6 +57,7 @@ For predicting the next token, we use only the last row of Z (the representation
 ## Next Generation Step
 
 For the next round of token prediction:
+
 1. Convert `next_token` to its embedding vector (size `d_model`)
 2. Append this new embedding as a new row to X: X_new = [X; next_token_embedding]
 3. X_new now has shape `(seq_len + 1, d_model)`
@@ -72,6 +74,7 @@ Let `X_last` be the last token that was predicted and appended to the end of X. 
 - Q = X_last · W_Q  (now a vector of shape `d_model` instead of a matrix)
 
 The rest of the computation remains the same:
+
 - A = mask(Q · K^T)
 - A = softmax(A)
 - Z = A · V
@@ -85,7 +88,7 @@ Since W_Q, W_K, W_V, and W_vocab are constant during inference, we can cache pre
 
 This avoids recomputing K and V for all previous tokens at each step.
 
-**Why don't we cache Q?** As shown in the query optimization above, we only need Q for the last token, so there's no need to cache the Q matrix. 
+**Why don't we cache Q?** As shown in the query optimization above, we only need Q for the last token, so there's no need to cache the Q matrix.
 
 ## Batched inference
 
@@ -98,7 +101,7 @@ To improve inference performance, often times several batches are decoded at the
 ---
 
 [^1]: In practice, A = (Q · K^T) / √d_k is used where √d_k is a scaling factor. This scaling is for numerical stability: as the dimension d_k grows, the dot products can become very large, pushing the softmax into regions with very small gradients (saturation). The scaling keeps the variance of the dot products constant, preventing this issue.
-
+    
 [^2]: Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A. N., Kaiser, Ł., & Polosukhin, I. (2017). [Attention Is All You Need](https://arxiv.org/abs/1706.03762). *Advances in Neural Information Processing Systems (NeurIPS)*.
-
+    
 [^3]: Kwon, W., Li, Z., Zhuang, S., Sheng, Y., Zheng, L., Yu, C. H., Gonzalez, J., Zhang, H., & Stoica, I. (2023). [Efficient Memory Management for Large Language Model Serving with PagedAttention](https://arxiv.org/abs/2309.06180). *Proceedings of the 29th Symposium on Operating Systems Principles (SOSP)*.
