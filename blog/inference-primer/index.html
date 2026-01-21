@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>LLM Inference Primer | Pratyush Das</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Blog by Pratyush Das">
+    <link rel="stylesheet" href="/css/main.css">
+  </head>
+  <body>
+    <article class="blog-post">
+  <header class="post-header">
+    <h1 class="post-title">LLM Inference Primer</h1>
+    
+    <time class="post-date">January 21, 2026</time>
+    
+  </header>
+  <div class="post-content">
+    <p>We first need to understand how transformers<sup class="footnote-ref"><a href="#fn1" id="fnref1">[1]</a></sup> work (the first part of this document).</p>
+<h2>Sequence Representation</h2>
+<p>A <strong>prompt</strong> is a sequence of text. The sequence is broken into <strong>tokens</strong> (tokenization is implementation-specific). Each token is converted into a vector representation of size <code>d_model</code> (an embedding).</p>
+<p>Let <code>seq_len</code> be the number of tokens in a sequence. The sequence is represented as a dense matrix of shape <code>(seq_len, d_model)</code>, where each row is the representation of a token.</p>
+<p>Let’s call this sequence matrix <strong>X</strong>:</p>
+<pre><code>     [  ]
+     [  ]
+X =  [  ]  (seq_len × d_model)
+     [  ]
+     [  ]
+</code></pre>
+<h2>Attention Mechanism</h2>
+<p>The pre-trained model provides weight matrices: <strong>W_Q</strong>, <strong>W_K</strong>, <strong>W_V</strong>, and <strong>W_vocab</strong>. These are constant for the entire inference. (How are they generated? There will be a training primer later :p)</p>
+<p><strong>Query, Key, and Value projections:</strong></p>
+<ul>
+<li>Q = X · W_Q</li>
+<li>K = X · W_K</li>
+<li>V = X · W_V</li>
+</ul>
+<p><strong>Attention computation:</strong></p>
+<ul>
+<li>A = Q · K^T<sup class="footnote-ref"><a href="#fn2" id="fnref2">[2]</a></sup></li>
+<li>A = mask(A)  (zero out A[i, j] where j &gt; i - a future token j cannot contribute to a previous token i; this is required for correctness, not just performance)</li>
+<li>A = softmax(A)  (normalize each row to sum to 1)</li>
+</ul>
+<p><strong>Why softmax?</strong> After softmax, each row of A sums to 1, meaning A[i, j] represents the fraction of token j’s value vector that contributes to token i’s representation.</p>
+<p><strong>Output:</strong></p>
+<ul>
+<li>Z = A · V</li>
+</ul>
+<p>Z is the updated intermediate token representation.</p>
+<h2>Token Prediction</h2>
+<p>For predicting the next token, we use only the last row of Z (the representation of the last token in the existing sequence):</p>
+<ul>
+<li>logits = Z[-1] · W_vocab  (vector of shape <code>vocab_size</code> - now each element is a token, instead of each row being a token)</li>
+<li>probabilities = softmax(logits)  (vector of shape <code>vocab_size</code> where each element is the probability that the corresponding vocabulary token is the next token; all elements sum to 1)</li>
+<li>next_token = sample(probabilities)  (sample a token from this probability distribution)</li>
+</ul>
+<h2>Next Generation Step</h2>
+<p>For the next round of token prediction:</p>
+<ol>
+<li>Convert <code>next_token</code> to its embedding vector (size <code>d_model</code>)</li>
+<li>Append this new embedding as a new row to X: X_new = [X; next_token_embedding]</li>
+<li>X_new now has shape <code>(seq_len + 1, d_model)</code></li>
+<li>Re-run the attention mechanism and token prediction with X_new</li>
+</ol>
+<p>This process repeats, generating one token at a time until a stopping condition (e.g., end-of-sequence token or maximum length).</p>
+<h2>Query Optimization</h2>
+<p>For the first step of inference (called the prompt phase), we compute Q = X · W_Q for all tokens. However, we only need the last row of Q in subsequent steps (called the autoregressive generation phase).</p>
+<p>Let <code>X_last</code> be the last token that was predicted and appended to the end of X. For subsequent steps, we can optimize the calculation:</p>
+<ul>
+<li>Q = X_last · W_Q  (now a vector of shape <code>d_model</code> instead of a matrix)</li>
+</ul>
+<p>The rest of the computation remains the same:</p>
+<ul>
+<li>A = mask(Q · K^T)</li>
+<li>A = softmax(A)</li>
+<li>Z = A · V</li>
+</ul>
+<h2>KV Cache</h2>
+<p>Since W_Q, W_K, W_V, and W_vocab are constant during inference, we can cache previously computed K and V values. When a new token is appended to X, we only need to:</p>
+<ol>
+<li>Compute K_new and V_new for the new token</li>
+<li>Append these to the cached K and V from previous tokens</li>
+</ol>
+<p>This avoids recomputing K and V for all previous tokens at each step.</p>
+<p><strong>Why don’t we cache Q?</strong> As shown in the query optimization above, we only need Q for the last token, so there’s no need to cache the Q matrix.</p>
+<h2>Batched inference</h2>
+<p>To improve inference performance, often times several batches are decoded at the same time. And often times, these batches have a shared prefix (for eg. a shared system prompt). In this case, several batches can share the KV cache for the prompt phase, but cannot for the autoregressive generation phase.</p>
+<h2>Paged Attention<sup class="footnote-ref"><a href="#fn3" id="fnref3">[3]</a></sup></h2>
+<p><em>More on this topic coming soon…</em></p>
+<hr>
+<hr class="footnotes-sep">
+<section class="footnotes">
+<ol class="footnotes-list">
+<li id="fn1" class="footnote-item"><p>Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A. N., Kaiser, Ł., &amp; Polosukhin, I. (2017). <a href="https://arxiv.org/abs/1706.03762">Attention Is All You Need</a>. <em>Advances in Neural Information Processing Systems (NeurIPS)</em>. <a href="#fnref1" class="footnote-backref">↩︎</a></p>
+</li>
+<li id="fn2" class="footnote-item"><p>In practice, A = (Q · K^T) / √d_k is used where √d_k is a scaling factor. This scaling is for numerical stability: as the dimension d_k grows, the dot products can become very large, pushing the softmax into regions with very small gradients (saturation). The scaling keeps the variance of the dot products constant, preventing this issue. <a href="#fnref2" class="footnote-backref">↩︎</a></p>
+</li>
+<li id="fn3" class="footnote-item"><p>Kwon, W., Li, Z., Zhuang, S., Sheng, Y., Zheng, L., Yu, C. H., Gonzalez, J., Zhang, H., &amp; Stoica, I. (2023). <a href="https://arxiv.org/abs/2309.06180">Efficient Memory Management for Large Language Model Serving with PagedAttention</a>. <em>Proceedings of the 29th Symposium on Operating Systems Principles (SOSP)</em>. <a href="#fnref3" class="footnote-backref">↩︎</a></p>
+</li>
+</ol>
+</section>
+
+  </div>
+  <footer class="post-footer">
+    <a href="/">&larr; Back to Home</a>
+  </footer>
+</article>
+
+  </body>
+</html>
