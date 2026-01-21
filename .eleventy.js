@@ -5,6 +5,18 @@ module.exports = function(eleventyConfig) {
     // set up Sass for compiling from *.scss to *.css
     eleventyConfig.addPlugin(eleventySass, { sass });
 
+    // Add a date filter for formatting dates
+    eleventyConfig.addFilter("date", function(date, format) {
+        if (!date) return "";
+        const d = new Date(date);
+        const months = ["January", "February", "March", "April", "May", "June",
+                        "July", "August", "September", "October", "November", "December"];
+        if (format === "%B %d, %Y") {
+            return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+        }
+        return d.toLocaleDateString();
+    });
+
     // Include any files in assets/ directly in your website without modifying
     // them. You can also use this for paper PDFs.
     //

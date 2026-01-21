@@ -1,0 +1,25 @@
+---
+layout: base.njk
+title: Blog
+description: Blog posts by Pratyush Das
+---
+<div class="blog-index">
+  <h1>Blog</h1>
+  <p class="blog-intro">Thoughts and notes on compilers, systems, and machine learning.</p>
+  
+  <ul class="post-list">
+    {%- for post in collections.posts reversed -%}
+    <li class="post-item">
+      <a href="{{ post.url }}">
+        <h2 class="post-item-title">{{ post.data.title }}</h2>
+        {% if post.data.description %}
+        <p class="post-item-description">{{ post.data.description }}</p>
+        {% endif %}
+        {% if post.date %}
+        <time class="post-item-date">{{ post.date | date: "%B %d, %Y" }}</time>
+        {% endif %}
+      </a>
+    </li>
+    {%- endfor -%}
+  </ul>
+</div>
