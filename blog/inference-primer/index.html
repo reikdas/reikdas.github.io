@@ -95,7 +95,7 @@ X =  [  ]  (seq_len × d_model)
 <li>The system pre-allocates contiguous memory for the maximum possible length (e.g., 2048 tokens)</li>
 <li>The actual sequence ends up being 500 tokens</li>
 <li>1548 slots are wasted (internal fragmentation)</li>
-<li>Different requests have different maximum lengths, creating gaps between allocations (external fragmentation). Free memory may exist, but if it is not contiguous, a new KV cache cannot be allocated. One might consider using pointer-based allocation (as CPU allocators like <code>malloc</code> do) to utilize scattered free memory, but this degrades GPU performance—GPUs are optimized for coalesced memory access, and random indirection through pointers for each KV cache access is expensive. [^6]</li>
+<li>Different requests have different maximum lengths, creating gaps between allocations (external fragmentation). Free memory may exist, but if it is not contiguous, a new KV cache cannot be allocated. One might consider using pointer-based allocation (as CPU allocators like <code>malloc</code> do) to utilize scattered free memory, but this degrades GPU performance—GPUs are optimized for coalesced memory access, and random indirection through pointers for each KV cache access is expensive. <sup class="footnote-ref"><a href="#fn4" id="fnref4">[4]</a></sup></li>
 <li>Result: Very low percentage of KV cache memory actually stores useful data</li>
 </ul>
 <p>PagedAttention addresses these issues by splitting the KV cache into fixed-size blocks of non-contiguous memory, with a block table that enables lookup into each block.</p>
@@ -108,7 +108,23 @@ X =  [  ]  (seq_len × d_model)
 <li>Result: High memory utilization</li>
 </ul>
 <p>This block-based indirection also enables sequences A and B to share the same KV cache blocks for their common prefix.</p>
-<h2>RadixAttention[^4]</h2>
+<p><strong>Example:</strong> Consider two prompts with a shared prefix (using page size = 1 token):</p>
+<ul>
+<li>Prompt A: “The cat sat” (3 tokens)</li>
+<li>Prompt B: “The cat ran” (3 tokens)</li>
+</ul>
+<p>“The” and “cat” are shared. “sat” is unique to A, “ran” is unique to B.</p>
+<pre><code>Block tables:
+  A: [P0, P1, P2]
+  B: [P0, P1, P3]   ← P0, P1 shared via reference counting
+
+Physical pages:
+  P0: &quot;The&quot;  (shared)
+  P1: &quot;cat&quot;  (shared)
+  P2: &quot;sat&quot;  (A-only)
+  P3: &quot;ran&quot;  (B-only)
+</code></pre>
+<h2>RadixAttention<sup class="footnote-ref"><a href="#fn5" id="fnref5">[5]</a></sup></h2>
 <p>PagedAttention’s primary motivation was solving memory fragmentation—its contribution is efficient memory management for concurrent requests. It could theoretically retain KV cache after requests complete for future reuse, but its per-sequence block tables don’t provide a way to find prefix matches: when a new request arrives, how do you efficiently determine if any cached prefix matches?</p>
 <p>RadixAttention solves this with a <strong>radix tree</strong>: a global data structure for cross-request KV cache reuse over time. The tree works as follows:</p>
 <ul>
@@ -120,18 +136,203 @@ X =  [  ]  (seq_len × d_model)
 </ul>
 <p><strong>Radix Tree:</strong> When a new sequence partially matches an existing edge, the radix tree splits the edge. For example: if the tree has edge [A,B,C,D,E] and a new request needs [A,B,C,F,G], the edge splits into [A,B,C] → node → [D,E], with a new edge [F,G] branching from that node.</p>
 <p>RadixAttention reuses the existing KV cache for the shared prefix [A,B,C] and only computes new KV cache blocks for the divergent suffix [F,G].</p>
+<p><strong>Example:</strong> Using the same prompts as the PagedAttention example:</p>
+<pre><code>Root
+  └─&quot;The&quot;─→ [R0]
+              └─&quot;cat&quot;─→ [R1]
+                         ├─&quot;sat&quot;─→ [R2]
+                         └─&quot;ran&quot;─→ [R3]
+
+A uses: R0 → R1 → R2
+B uses: R0 → R1 → R3
+</code></pre>
 <p>Contiguous KV cache storage cannot support this. A radix tree requires sharing and extending prefixes dynamically—if request A caches tokens [1,2,3] and request B needs [1,2,3,4,5], B must extend A’s cache without copying it. Contiguous storage would require pre-allocating space or copying the entire prefix.</p>
-<h2>Paged Attention<sup class="footnote-ref"><a href="#fn3" id="fnref3:1">[3:1]</a></sup></h2>
-<p><em>More on this topic coming soon…</em></p>
+<h2>FlashInfer<sup class="footnote-ref"><a href="#fn6" id="fnref6">[6]</a></sup></h2>
+<p>Both PagedAttention and RadixAttention store the KV-cache in non-contiguous memory, but their data structures differ. FlashInfer uses a block sparse matrix as a lookup table that can represent both styles (and more).</p>
+<p>The block sparse matrix maps query positions (rows) to KV positions (columns). Each row stores which physical pages the kernel needs to load K and V from to compute attention (recall: K = X · W_K, V = X · W_V from Attention Mechanism, and only K and V are cached — see KV Cache). Q is computed on the fly for each position (see Query Optimization). During batched inference, queries from all requests are packed into a single contiguous array without padding (a ragged tensor). Consider a variation of the earlier example with different-length requests:</p>
+<pre><code>Prompt A: &quot;The cat sat&quot;      (3 tokens)
+Prompt B: &quot;The cat ran fast&quot; (4 tokens)
+
+Without ragged tensor (padded to max length):
+  A: [Q_&quot;The&quot;, Q_&quot;cat&quot;, Q_&quot;sat&quot;, &lt;pad&gt; ]
+  B: [Q_&quot;The&quot;, Q_&quot;cat&quot;, Q_&quot;ran&quot;, Q_&quot;fast&quot;]
+  → stored as a 2 × 4 matrix, wasting one slot for A
+
+Ragged tensor (packed, no padding):
+  data:   [Q_&quot;The&quot;, Q_&quot;cat&quot;, Q_&quot;sat&quot;, Q_&quot;The&quot;, Q_&quot;cat&quot;, Q_&quot;ran&quot;, Q_&quot;fast&quot;]
+           ← request A (3 tokens) →    ← request B (4 tokens) →
+  indptr: [0, 3, 7]
+</code></pre>
+<p><code>indptr</code> marks where each request starts and ends: request A = <code>data[0:3]</code>, request B = <code>data[3:7]</code>. Each entry is a vector of shape <code>d_model</code>. The rows of the block sparse matrix correspond to positions in this packed array.</p>
+<p>The matrix is divided into blocks of size (Br, Bc):</p>
+<ul>
+<li><strong>Br</strong> (block row size) = query tile size: how many query positions per row block. Br=1 during the decode phase (one new token), larger during the prefill phase.</li>
+<li><strong>Bc</strong> (block column size) = KV page size: how many KV positions per column block. Determined by the KV-cache management algorithm.</li>
+</ul>
+<p><strong>Example:</strong> Using d_model = 2 for illustration (recall d_model from Sequence Representation). “The” and “cat” are the shared prefix. “sat” is unique to A, “ran” and “fast” are unique to B.</p>
+<p>KV cache pages (page size = 1 token, same layout as the PagedAttention example):</p>
+<pre><code>  P0 (&quot;The&quot;, shared):   K=[1,0],  V=[1,1]
+  P1 (&quot;cat&quot;, shared):   K=[0,1],  V=[2,0]
+  P2 (&quot;sat&quot;, A-only):   K=[1,1],  V=[0,1]
+  P3 (&quot;ran&quot;, B-only):   K=[1,-1], V=[1,0]
+  P4 (&quot;fast&quot;, B-only):  K=[0,-1], V=[0,1]
+</code></pre>
+<p><strong>FlashInfer’s block sparse matrix</strong> with Br=1, Bc=1. Each row is one query position, each column is one KV page. Each cell stores the page index to load K, V from. Empty cells mean “no attention”:</p>
+<pre><code>              P0     P1     P2     P3     P4
+              (The)  (cat)  (sat)  (ran)  (fast)
+             shared shared A-only B-only B-only
+            ┌──────┬──────┬──────┬──────┬──────┐
+A, pos 0    │  P0  │      │      │      │      │
+            ├──────┼──────┼──────┼──────┼──────┤
+A, pos 1    │  P0  │  P1  │      │      │      │
+            ├──────┼──────┼──────┼──────┼──────┤
+A, pos 2    │  P0  │  P1  │  P2  │      │      │
+            ├──────┼──────┼──────┼──────┼──────┤
+B, pos 0    │  P0  │      │      │      │      │
+            ├──────┼──────┼──────┼──────┼──────┤
+B, pos 1    │  P0  │  P1  │      │      │      │
+            ├──────┼──────┼──────┼──────┼──────┤
+B, pos 2    │  P0  │  P1  │      │  P3  │      │
+            ├──────┼──────┼──────┼──────┼──────┤
+B, pos 3    │  P0  │  P1  │      │  P3  │  P4  │
+            └──────┴──────┴──────┴──────┴──────┘
+</code></pre>
+<p>This matrix is stored as a lookup table — for each row, it records which columns (physical pages) to access:</p>
+<pre><code>A, pos 0 → pages [P0]
+A, pos 1 → pages [P0, P1]
+A, pos 2 → pages [P0, P1, P2]
+B, pos 0 → pages [P0]
+B, pos 1 → pages [P0, P1]
+B, pos 2 → pages [P0, P1, P3]
+B, pos 3 → pages [P0, P1, P3, P4]
+</code></pre>
+<p><strong>Kernel workflow for row “A, pos 2”:</strong></p>
+<p>Q for position 2 is computed on the fly: Q = [1,1]. The lookup table says: load KV from pages P0, P1, P2.</p>
+<pre><code>1. Load K from P0, P1, P2:  [[1,0], [0,1], [1,1]]
+2. Attention scores = Q · K^T:
+     [1,1]·[1,0] = 1,  [1,1]·[0,1] = 1,  [1,1]·[1,1] = 2
+     → scores = [1, 1, 2]
+3. Causal mask: all valid (positions 0, 1, 2 are all ≤ 2)
+4. Softmax([1, 1, 2]) = [0.21, 0.21, 0.58]
+5. Load V from P0, P1, P2:  [[1,1], [2,0], [0,1]]
+6. Output = 0.21·[1,1] + 0.21·[2,0] + 0.58·[0,1] = [0.63, 0.79]
+</code></pre>
+<p><strong>Causal mask in the Br=1 case:</strong> In step 3, the causal mask didn’t mask anything — all loaded KV positions (0, 1, 2) were ≤ the query position (2). This is true for every row: “A, pos 0” only loads P0, “A, pos 1” loads P0 and P1, etc. With Br=1, the lookup table already encodes causality by only listing pages up to each query’s position, making the causal mask a no-op.</p>
+<p><strong>Optimization: Br=3.</strong> During prefill, query positions within each request can be grouped into row blocks. Request A (3 tokens) fits in one block of Br=3. Request B (4 tokens) requires ⌈4/3⌉ = 2 blocks: [pos 0-2] and [pos 3]. Each filled block represents multiple query positions looking up KV from the same pages:</p>
+<pre><code>              P0     P1     P2     P3     P4
+              (The)  (cat)  (sat)  (ran)  (fast)
+             shared shared A-only B-only B-only
+            ┌──────┬──────┬──────┬──────┬──────┐
+A, pos 0-2  │  P0  │  P1  │  P2  │      │      │
+            ├──────┼──────┼──────┼──────┼──────┤
+B, pos 0-2  │  P0  │  P1  │      │  P3  │      │
+            ├──────┼──────┼──────┼──────┼──────┤
+B, pos 3    │  P0  │  P1  │      │  P3  │  P4  │
+            └──────┴──────┴──────┴──────┴──────┘
+</code></pre>
+<p>The kernel loads Q for all positions in a block at once and reuses the loaded K, V across all queries in the block. The causal mask is applied inside each block:</p>
+<pre><code>Scores for A, pos 0-2:
+              P0     P1     P2
+   pos 0    [ 1     -∞     -∞  ]  ← pos 0 can only attend to pos 0
+   pos 1    [ 0      1     -∞  ]  ← pos 1 can attend to pos 0, 1
+   pos 2    [ 1      1      2  ]  ← pos 2 can attend to all
+</code></pre>
+<p><strong>Causal mask in the Br=3 case:</strong> Unlike Br=1, the causal mask is now essential. All 3 of A’s positions are in one row block and load the same pages (P0, P1, P2). Without the mask, position 0 would incorrectly attend to positions 1 and 2. The -∞ entries ensure these scores become 0 after softmax. The tradeoff: larger Br loads K, V once for multiple queries (more efficient), but some loaded values get masked out (wasted work within the block).</p>
+<p>Same results as Br=1, but more efficient — K, V are loaded once and reused.</p>
+<p><strong>Optimization: Bc=2.</strong> With a page size of 2, each page stores KV for 2 token positions. The KV cache is repacked:</p>
+<pre><code>  P0 (&quot;The&quot;+&quot;cat&quot;, shared):       K=[[1,0],[0,1]],   V=[[1,1],[2,0]]
+  P1 (&quot;sat&quot;, A-only):             K=[[1,1]],          V=[[0,1]]
+  P2 (&quot;ran&quot;+&quot;fast&quot;, B-only):      K=[[1,-1],[0,-1]],  V=[[1,0],[0,1]]
+</code></pre>
+<p>Each filled block is now a (1 × 2) lookup — 1 query position loading KV for 2 token positions at once:</p>
+<pre><code>              P0           P1       P2
+           (The, cat)    (sat)    (ran, fast)
+             shared      A-only   B-only
+            ┌──────────┬────────┬──────────┐
+A, pos 0    │    P0    │        │          │
+            ├──────────┼────────┼──────────┤
+A, pos 1    │    P0    │        │          │
+            ├──────────┼────────┼──────────┤
+A, pos 2    │    P0    │   P1   │          │
+            ├──────────┼────────┼──────────┤
+B, pos 0    │    P0    │        │          │
+            ├──────────┼────────┼──────────┤
+B, pos 1    │    P0    │        │          │
+            ├──────────┼────────┼──────────┤
+B, pos 2    │    P0    │        │    P2    │
+            ├──────────┼────────┼──────────┤
+B, pos 3    │    P0    │        │    P2    │
+            └──────────┴────────┴──────────┘
+</code></pre>
+<p>Fewer blocks to iterate over, but some loaded KV entries are masked out. For example, when A, pos 0 loads from P0, it gets K, V for both “The” and “cat” — but the causal mask zeroes out the “cat” score since position 1 &gt; position 0.</p>
+<p><strong>Optimization: composable formats.</strong> Consider what happens with the Br=1, Bc=1 matrix when processing the shared prefix. All 7 query positions (A’s 3 + B’s 4) independently load KV from P0. That’s K=[1,0], V=[1,1] loaded from global memory 7 separate times. Same for P1. This is wasteful.</p>
+<p>FlashInfer can split the attention computation across multiple block sparse matrices with different block sizes and compose the results:</p>
+<ul>
+<li><strong>Shared prefix matrix</strong> (Br=7, Bc=1): groups all 7 queries into one row block. K, V for each shared page is loaded into fast shared memory once, and all 7 queries compute their attention scores against it.</li>
+<li><strong>Unique suffix matrix</strong> (Br=1, Bc=1): each request’s unique suffix tokens are handled independently.</li>
+</ul>
+<!-- Should the P0 and P1 columns actually be merged here instead of left as 2? -->
+<pre><code>Shared prefix matrix (Br=7, Bc=1):
+
+              P0     P1
+             (The)  (cat)
+            ┌──────┬──────┐
+A, pos 0    │      │      │
+A, pos 1    │      │      │
+A, pos 2    │  P0  │  P1  │  ← one row block, all 7 queries
+B, pos 0    │      │      │
+B, pos 1    │      │      │
+B, pos 2    │      │      │
+B, pos 3    │      │      │
+            └──────┴──────┘
+
+Kernel for P0 block: load K=[1,0], V=[1,1] once into shared
+memory. All 7 queries compute scores against this K and weight
+this V — 7× reuse vs. 7 independent global memory loads.
+</code></pre>
+<pre><code>Unique suffix matrix (Br=1, Bc=1):
+
+              P2     P3     P4
+             (sat)  (ran)  (fast)
+            ┌──────┬──────┬──────┐
+A, pos 2    │  P2  │      │      │
+            ├──────┼──────┼──────┤
+B, pos 2    │      │  P3  │      │
+            ├──────┼──────┼──────┤
+B, pos 3    │      │  P3  │  P4  │
+            └──────┴──────┴──────┘
+
+Only A pos 2, B pos 2, and B pos 3 have unique suffixes. Other
+positions (A pos 0, A pos 1, B pos 0, B pos 1) use only their
+shared prefix output.
+</code></pre>
+<p>Each matrix produces a partial attention output and a log-sum-exp (LSE) normalizer for each query position. These are merged exactly:</p>
+<pre><code>For each query position:
+  O_shared, LSE_shared = partial attention output from shared prefix matrix
+  O_unique, LSE_unique = partial attention output from unique suffix matrix
+
+  LSE_merged = log(exp(LSE_shared) + exp(LSE_unique))
+  O_merged   = (exp(LSE_shared) · O_shared + exp(LSE_unique) · O_unique)
+                / exp(LSE_merged)
+</code></pre>
+<p>This merge is mathematically equivalent to computing attention over all KV positions at once — splitting the softmax denominator across subsets and recombining is exact, not an approximation.</p>
+<p><strong>Fewer memory loads:</strong> Without composable formats, K, V from each shared page is loaded from global memory 7 times (once per query). With the shared prefix matrix (Br=7), K, V is loaded once into shared memory and reused across all 7 queries.</p>
+<p>More importantly, the matrix representation enables composable formats (above). Neither PagedAttention nor RadixAttention can do this on their own: PagedAttention has no mechanism to group queries sharing a prefix into a larger kernel tile, and RadixAttention identifies shared prefixes via its radix tree but each query still loads the shared KV from global memory independently. FlashInfer’s block sparse matrix makes the sharing pattern explicit in the sparsity structure, enabling the kernel to load shared KV once and reuse it across queries.</p>
 <hr>
 <hr class="footnotes-sep">
 <section class="footnotes">
 <ol class="footnotes-list">
 <li id="fn1" class="footnote-item"><p>Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A. N., Kaiser, Ł., &amp; Polosukhin, I. (2017). <a href="https://arxiv.org/abs/1706.03762">Attention Is All You Need</a>. <em>Advances in Neural Information Processing Systems (NeurIPS)</em>. <a href="#fnref1" class="footnote-backref">↩︎</a></p>
 </li>
-<li id="fn2" class="footnote-item"><p>In practice, A = (Q · K^T) / √d_k is used where √d_k is a scaling factor. This scaling is for numerical stability: as the dimension d_k grows, the dot products can become very large, pushing the softmax into regions with very small gradients (saturation). The scaling keeps the variance of the dot products constant, preventing this issue. <a href="#fnref2" class="footnote-backref">↩︎</a></p>
+<li id="fn2" class="footnote-item"><p>In practice, A = (Q · K^T) / √d_k is used where √d_k is a scaling factor. This scaling is for numerical stability: as the dimension d_k grows, the dot products can become very large. The scaling keeps the variance of the dot products constant, preventing this issue. <a href="#fnref2" class="footnote-backref">↩︎</a></p>
 </li>
-<li id="fn3" class="footnote-item"><p>Kwon, W., Li, Z., Zhuang, S., Sheng, Y., Zheng, L., Yu, C. H., Gonzalez, J., Zhang, H., &amp; Stoica, I. (2023). <a href="https://arxiv.org/abs/2309.06180">Efficient Memory Management for Large Language Model Serving with PagedAttention</a>. <em>Proceedings of the 29th Symposium on Operating Systems Principles (SOSP)</em>. <a href="#fnref3" class="footnote-backref">↩︎</a> <a href="#fnref3:1" class="footnote-backref">↩︎</a></p>
+<li id="fn3" class="footnote-item"><p>Kwon, W., Li, Z., Zhuang, S., Sheng, Y., Zheng, L., Yu, C. H., Gonzalez, J., Zhang, H., &amp; Stoica, I. (2023). <a href="https://arxiv.org/abs/2309.06180">Efficient Memory Management for Large Language Model Serving with PagedAttention</a>. <em>Proceedings of the 29th Symposium on Operating Systems Principles (SOSP)</em>. <a href="#fnref3" class="footnote-backref">↩︎</a></p>
+</li>
+<li id="fn4" class="footnote-item"><p>PagedAttention also introduces indirection, but at block granularity rather than element granularity. The block table is consulted once per block to find its physical location, then memory access within the block is contiguous and coalesced. This amortizes the indirection cost over many elements, unlike fine-grained pointer chasing for every KV cache access. <a href="#fnref4" class="footnote-backref">↩︎</a></p>
+</li>
+<li id="fn5" class="footnote-item"><p>Zheng, L., Yin, L., Xie, Z., Sun, C., Huang, J., Yu, C. H., Cao, S., Kozyrakis, C., Stoica, I., Gonzalez, J. E., Barrett, C., &amp; Sheng, Y. (2024). <a href="https://arxiv.org/abs/2312.07104">SGLang: Efficient Execution of Structured Language Model Programs</a>. <em>Advances in Neural Information Processing Systems 37 (NeurIPS)</em>. <a href="#fnref5" class="footnote-backref">↩︎</a></p>
+</li>
+<li id="fn6" class="footnote-item"><p>Ye, Z., Chen, L., Lai, R., Lin, W., Zhang, Y., Wang, S., Chen, T., Kasikci, B., Grover, V., Krishnamurthy, A., &amp; Ceze, L. (2025). <a href="https://arxiv.org/abs/2501.01005">FlashInfer: Efficient and Customizable Attention Engine for LLM Inference Serving</a>. <em>Proceedings of Machine Learning and Systems (MLSys)</em>. <a href="#fnref6" class="footnote-backref">↩︎</a></p>
 </li>
 </ol>
 </section>
