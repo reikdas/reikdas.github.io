@@ -4,8 +4,6 @@ title: LLM Inference Primer
 date: 2026-01-21
 tags: posts
 ---
-We first need to understand how transformers[^2] work (the first part of this document).
-
 ## Sequence Representation
 
 A **prompt** is a sequence of text. The sequence is broken into **tokens** (tokenization is implementation-specific). Each token is converted into a vector representation of size `d_model` (an embedding).
@@ -22,7 +20,7 @@ X =  [  ]  (seq_len × d_model)
      [  ]
 ```
 
-## Attention Mechanism
+## Attention Mechanism[^2]
 
 The pre-trained model provides weight matrices: **W_Q**, **W_K**, **W_V**, and **W_vocab**. These are constant for the entire inference. (How are they generated? There will be a training primer later :p)
 
@@ -67,7 +65,7 @@ This process repeats, generating one token at a time until a stopping condition 
 
 ## Query Optimization
 
-For the first step of inference (called the prompt phase), we compute Q = X · W_Q for all tokens. However, we only need the last row of Q in subsequent steps (called the autoregressive generation phase).
+For the first step of inference (called the prompt/prefill phase), we compute Q = X · W_Q for all tokens. However, we only need the last row of Q in subsequent steps (called the autoregressive generation phase/decode phase).
 
 Let `X_last` be the last token that was predicted and appended to the end of X. For subsequent steps, we can optimize the calculation:
 
@@ -90,9 +88,58 @@ This avoids recomputing K and V for all previous tokens at each step.
 
 **Why don't we cache Q?** As shown in the query optimization above, we only need Q for the last token, so there's no need to cache the Q matrix.
 
-## Batched inference
+**Insight:** LLM inference mostly involves vector-matrix multiplication instead of matrix-matrix multiplication.
 
-To improve inference performance, often times several batches are decoded at the same time. And often times, these batches have a shared prefix (for eg. a shared system prompt). In this case, several batches can share the KV cache for the prompt phase, but cannot for the autoregressive generation phase.
+## Batched Inference
+
+The autoregressive generation phase is **memory-bound**: loading model weights (W_Q, W_K, W_V, W_vocab) from GPU memory dominates the cost, while the actual computation is relatively cheap. Processing one sequence at a time underutilizes the GPU.
+
+**Batching** processes multiple sequences simultaneously. Since all sequences share the same model weights, we load the weights once and apply them to all sequences in the batch. This amortizes the memory bandwidth cost and increases GPU utilization. Each sequence in the batch maintains its own KV cache, as they contain different tokens. The sequences do not need to be related.
+
+**Shared prefix optimization:** When sequences share a common prefix (e.g., a system prompt), they can potentially share the KV cache for that prefix portion, reducing memory usage.
+
+## PagedAttention[^3]
+
+However, sequences cannot share the KV cache during the autoregressive generation phase. The KV cache is typically stored as a contiguous block of memory. Consider two prompts A and B: once they diverge beyond their shared prefix, A and B require different KV cache values. Since the KV cache is stored in contiguous memory, A and B cannot write to the existing shared KV cache and must maintain separate copies.
+
+Additionally, traditional systems suffer from memory fragmentation. In such systems:
+
+- A request arrives, but the system does not know the output length
+- The system pre-allocates contiguous memory for the maximum possible length (e.g., 2048 tokens)
+- The actual sequence ends up being 500 tokens
+- 1548 slots are wasted (internal fragmentation)
+- Different requests have different maximum lengths, creating gaps between allocations (external fragmentation). Free memory may exist, but if it is not contiguous, a new KV cache cannot be allocated. One might consider using pointer-based allocation (as CPU allocators like `malloc` do) to utilize scattered free memory, but this degrades GPU performance—GPUs are optimized for coalesced memory access, and random indirection through pointers for each KV cache access is expensive. [^6]
+- Result: Very low percentage of KV cache memory actually stores useful data
+
+PagedAttention addresses these issues by splitting the KV cache into fixed-size blocks of non-contiguous memory, with a block table that enables lookup into each block.
+
+PagedAttention:
+
+- Allocates blocks on demand as tokens are generated
+- A sequence using 500 tokens allocates exactly ⌈500/B⌉ blocks
+- All blocks have the same size, eliminating external fragmentation
+- The only waste is unfilled slots in the last block
+- Result: High memory utilization
+
+This block-based indirection also enables sequences A and B to share the same KV cache blocks for their common prefix.
+
+## RadixAttention[^4]
+
+PagedAttention's primary motivation was solving memory fragmentation—its contribution is efficient memory management for concurrent requests. It could theoretically retain KV cache after requests complete for future reuse, but its per-sequence block tables don't provide a way to find prefix matches: when a new request arrives, how do you efficiently determine if any cached prefix matches?
+
+RadixAttention solves this with a **radix tree**: a global data structure for cross-request KV cache reuse over time. The tree works as follows:
+
+- Each **edge** is labeled with a sequence of tokens (compressed representation—edges with no branching are merged)
+- Each **node** stores a pointer to the KV cache blocks for the token sequence from root to that node
+- To find a matching prefix, traverse from the root following edges that match the request's tokens
+- The traversal finds the longest matching prefix in O(n) time (where n is the request length)
+- An LRU eviction policy removes least-recently-used leaf nodes when memory fills up
+
+**Radix Tree:** When a new sequence partially matches an existing edge, the radix tree splits the edge. For example: if the tree has edge [A,B,C,D,E] and a new request needs [A,B,C,F,G], the edge splits into [A,B,C] → node → [D,E], with a new edge [F,G] branching from that node.
+
+RadixAttention reuses the existing KV cache for the shared prefix [A,B,C] and only computes new KV cache blocks for the divergent suffix [F,G].
+
+Contiguous KV cache storage cannot support this. A radix tree requires sharing and extending prefixes dynamically—if request A caches tokens [1,2,3] and request B needs [1,2,3,4,5], B must extend A's cache without copying it. Contiguous storage would require pre-allocating space or copying the entire prefix.
 
 ## Paged Attention[^3]
 
