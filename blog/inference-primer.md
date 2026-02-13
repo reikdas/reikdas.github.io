@@ -8,7 +8,9 @@ tags: posts
 
 A **prompt** is a sequence of text. The sequence is broken into **tokens** (tokenization is implementation-specific). Each token is converted into a vector representation of size `d_model` (an embedding).
 
-Let `seq_len` be the number of tokens in a sequence. The sequence is represented as a dense matrix of shape `(seq_len, d_model)`, where each row is the representation of a token.
+Positional information is also encoded into each token's vector (e.g., via sinusoidal functions or learned embeddings), so the model knows where each token appears in the sequence. The specifics vary by model, but the result is the same: each token's embedding encodes both what the token is and where it appears.
+
+Let `seq_len` be the number of tokens in a sequence. The sequence is represented as a dense matrix of shape `(seq_len, d_model)`, where each row is the embedding of a token.
 
 Let's call this sequence matrix **X**:
 
@@ -41,8 +43,11 @@ The pre-trained model provides weight matrices: **W_Q**, **W_K**, **W_V**, and *
 **Output:**
 
 - Z = A · V
+- Z = X + Z  (residual connection — each token's original representation carries through)
 
-Z is the updated intermediate token representation.
+Z is the attention output. 
+
+**Implementation detail:** In practice, the attention computation above is repeated multiple times in sequence, each with its own set of W_Q, W_K, W_V weight matrices. The output Z of one repetition becomes the input X to the next. The final repetition's output is used for token prediction. 
 
 ## Token Prediction
 
@@ -51,6 +56,8 @@ For predicting the next token, we use only the last row of Z (the representation
 - logits = Z[-1] · W_vocab  (vector of shape `vocab_size` - now each element is a token, instead of each row being a token)
 - probabilities = softmax(logits)  (vector of shape `vocab_size` where each element is the probability that the corresponding vocabulary token is the next token; all elements sum to 1)
 - next_token = sample(probabilities)  (sample a token from this probability distribution)
+
+**Temperature** controls how the probability distribution is shaped before sampling. The logits are divided by a temperature parameter T before softmax: `probabilities = softmax(logits / T)`. With T < 1, the distribution becomes sharper (the model is more likely to pick the highest-probability token). With T > 1, the distribution becomes flatter (more random). At T → 0, sampling always picks the highest-probability token (greedy decoding).
 
 ## Next Generation Step
 
@@ -62,6 +69,8 @@ For the next round of token prediction:
 4. Re-run the attention mechanism and token prediction with X_new
 
 This process repeats, generating one token at a time until a stopping condition (e.g., end-of-sequence token or maximum length).
+
+<!-- Claude: Do we need to briefly mention residual connection here -->
 
 ## Query Optimization
 
@@ -333,8 +342,7 @@ FlashInfer can split the attention computation across multiple block sparse matr
 
 - **Shared prefix matrix** (Br=7, Bc=1): groups all 7 queries into one row block. K, V for each shared page is loaded into fast shared memory once, and all 7 queries compute their attention scores against it.
 - **Unique suffix matrix** (Br=1, Bc=1): each request's unique suffix tokens are handled independently.  
-
-<!-- Should the P0 and P1 columns actually be merged here instead of left as 2? -->
+- 
 ```
 Shared prefix matrix (Br=7, Bc=1):
 
