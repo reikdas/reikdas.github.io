@@ -18,7 +18,8 @@
   <div class="post-content">
     <h2>Sequence Representation</h2>
 <p>A <strong>prompt</strong> is a sequence of text. The sequence is broken into <strong>tokens</strong> (tokenization is implementation-specific). Each token is converted into a vector representation of size <code>d_model</code> (an embedding).</p>
-<p>Let <code>seq_len</code> be the number of tokens in a sequence. The sequence is represented as a dense matrix of shape <code>(seq_len, d_model)</code>, where each row is the representation of a token.</p>
+<p>Positional information is also encoded into each token’s vector (e.g., via sinusoidal functions or learned embeddings), so the model knows where each token appears in the sequence. The specifics vary by model, but the result is the same: each token’s embedding encodes both what the token is and where it appears.</p>
+<p>Let <code>seq_len</code> be the number of tokens in a sequence. The sequence is represented as a dense matrix of shape <code>(seq_len, d_model)</code>, where each row is the embedding of a token.</p>
 <p>Let’s call this sequence matrix <strong>X</strong>:</p>
 <pre><code>     [  ]
      [  ]
@@ -44,8 +45,10 @@ X =  [  ]  (seq_len × d_model)
 <p><strong>Output:</strong></p>
 <ul>
 <li>Z = A · V</li>
+<li>Z = X + Z  (residual connection — each token’s original representation carries through)</li>
 </ul>
-<p>Z is the updated intermediate token representation.</p>
+<p>Z is the attention output.</p>
+<p><strong>Implementation detail:</strong> In practice, the attention computation above is repeated multiple times in sequence, each with its own set of W_Q, W_K, W_V weight matrices. The output Z of one repetition becomes the input X to the next. The final repetition’s output is used for token prediction.</p>
 <h2>Token Prediction</h2>
 <p>For predicting the next token, we use only the last row of Z (the representation of the last token in the existing sequence):</p>
 <ul>
@@ -53,6 +56,7 @@ X =  [  ]  (seq_len × d_model)
 <li>probabilities = softmax(logits)  (vector of shape <code>vocab_size</code> where each element is the probability that the corresponding vocabulary token is the next token; all elements sum to 1)</li>
 <li>next_token = sample(probabilities)  (sample a token from this probability distribution)</li>
 </ul>
+<p><strong>Temperature</strong> controls how the probability distribution is shaped before sampling. The logits are divided by a temperature parameter T before softmax: <code>probabilities = softmax(logits / T)</code>. With T &lt; 1, the distribution becomes sharper (the model is more likely to pick the highest-probability token). With T &gt; 1, the distribution becomes flatter (more random). At T → 0, sampling always picks the highest-probability token (greedy decoding).</p>
 <h2>Next Generation Step</h2>
 <p>For the next round of token prediction:</p>
 <ol>
@@ -62,6 +66,7 @@ X =  [  ]  (seq_len × d_model)
 <li>Re-run the attention mechanism and token prediction with X_new</li>
 </ol>
 <p>This process repeats, generating one token at a time until a stopping condition (e.g., end-of-sequence token or maximum length).</p>
+<!-- Claude: Do we need to briefly mention residual connection here -->
 <h2>Query Optimization</h2>
 <p>For the first step of inference (called the prompt/prefill phase), we compute Q = X · W_Q for all tokens. However, we only need the last row of Q in subsequent steps (called the autoregressive generation phase/decode phase).</p>
 <p>Let <code>X_last</code> be the last token that was predicted and appended to the end of X. For subsequent steps, we can optimize the calculation:</p>
@@ -270,8 +275,8 @@ B, pos 3    │    P0    │        │    P2    │
 <ul>
 <li><strong>Shared prefix matrix</strong> (Br=7, Bc=1): groups all 7 queries into one row block. K, V for each shared page is loaded into fast shared memory once, and all 7 queries compute their attention scores against it.</li>
 <li><strong>Unique suffix matrix</strong> (Br=1, Bc=1): each request’s unique suffix tokens are handled independently.</li>
+<li></li>
 </ul>
-<!-- Should the P0 and P1 columns actually be merged here instead of left as 2? -->
 <pre><code>Shared prefix matrix (Br=7, Bc=1):
 
               P0     P1
