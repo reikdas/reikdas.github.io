@@ -1,6 +1,6 @@
 ---
 layout: blog-post.njk
-title: LLM Inference Primer
+title: LLM Inference Primer (or fastest ramp-up to FlashInfer)
 date: 2026-01-21
 tags: posts
 ---
@@ -181,6 +181,8 @@ B uses: R0 → R1 → R3
 ```
 
 Contiguous KV cache storage cannot support this. A radix tree requires sharing and extending prefixes dynamically—if request A caches tokens [1,2,3] and request B needs [1,2,3,4,5], B must extend A's cache without copying it. Contiguous storage would require pre-allocating space or copying the entire prefix.
+
+PagedAttention and RadixAttention are two points in a much larger space of KV cache optimizations — covering memory efficiency, prefix reuse, speculative decoding, quantized caches, and distributed storage across nodes.[^7] We focus on these two because they directly motivate the attention kernel design in FlashInfer.
 
 ## FlashInfer[^5]
 
@@ -397,7 +399,33 @@ This merge is mathematically equivalent to computing attention over all KV posit
 
 **Fewer memory loads:** Without composable formats, K, V from each shared page is loaded from global memory 7 times (once per query). With the shared prefix matrix (Br=7), K, V is loaded once into shared memory and reused across all 7 queries.
 
-More importantly, the matrix representation enables composable formats (above). Neither PagedAttention nor RadixAttention can do this on their own: PagedAttention has no mechanism to group queries sharing a prefix into a larger kernel tile, and RadixAttention identifies shared prefixes via its radix tree but each query still loads the shared KV from global memory independently. FlashInfer's block sparse matrix makes the sharing pattern explicit in the sparsity structure, enabling the kernel to load shared KV once and reuse it across queries. 
+More importantly, the matrix representation enables composable formats (above). Neither PagedAttention nor RadixAttention can do this on their own: PagedAttention has no mechanism to group queries sharing a prefix into a larger kernel tile, and RadixAttention identifies shared prefixes via its radix tree but each query still loads the shared KV from global memory independently. FlashInfer's block sparse matrix makes the sharing pattern explicit in the sparsity structure, enabling the kernel to load shared KV once and reuse it across queries.
+
+## FlashInfer's plan/run API
+
+FlashInfer exposes a two-phase API for attention computation: `plan()` and `run()`.
+
+`plan()` runs on the CPU before each generation step. It takes `kv_indptr` and `kv_indices` — the indirection arrays encoding the block sparse matrix — as inputs, and computes a schedule: how to partition work across sequences, and how to parallelize across the KV dimension.
+
+`run()` launches the GPU kernel, passing `kv_indptr` and `kv_indices` directly to it. `kv_indptr` marks where each sequence's page list begins and ends (the same indptr structure used for the ragged query tensor); `kv_indices` lists the physical page indices for each sequence. The kernel is parameterized on these arrays — a single generic kernel handles any block sparse structure by following the indirection at runtime.
+
+The generation loop therefore looks like this (Listing 1 of the FlashInfer paper[^5]):
+
+```python
+attn.plan(batch_structure)      # one-time setup
+with torch.cuda.graph(g):
+    attn.run(q, kv_cache)       # capture GPU kernel
+
+while not finished:
+    attn.plan(batch_structure)  # CPU: recompute schedule
+    g.replay()                  # GPU: execute kernel
+```
+
+`plan()` is called every step because the batch structure changes: each generated token extends every sequence by one, potentially adding a new KV page.
+
+## SGLang and FlashInfer
+
+SGLang[^4] uses RadixAttention (see [RadixAttention](#radixattention)) to allocate and track KV cache pages, using the radix tree to identify which pages are shared across sequences. SGLang computes `kv_indptr` and `kv_indices` — the block sparse matrix encoding which physical KV pages each sequence attends to — and passes them to FlashInfer's `plan()` and `run()` at each decode step to execute the attention computation.
 
 ---
 
@@ -412,3 +440,5 @@ More importantly, the matrix representation enables composable formats (above). 
 [^5]: Ye, Z., Chen, L., Lai, R., Lin, W., Zhang, Y., Wang, S., Chen, T., Kasikci, B., Grover, V., Krishnamurthy, A., & Ceze, L. (2025). [FlashInfer: Efficient and Customizable Attention Engine for LLM Inference Serving](https://arxiv.org/abs/2501.01005). *Proceedings of Machine Learning and Systems (MLSys)*.
     
 [^6]: PagedAttention also introduces indirection, but at block granularity rather than element granularity. The block table is consulted once per block to find its physical location, then memory access within the block is contiguous and coalesced. This amortizes the indirection cost over many elements, unlike fine-grained pointer chasing for every KV cache access.
+
+[^7]: Zhang, B. (2026). [The Five Eras of KVCache](https://www.modular.com/blog/the-five-eras-of-kvcache). *Modular Blog*.
