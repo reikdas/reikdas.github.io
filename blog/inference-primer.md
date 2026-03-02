@@ -157,8 +157,8 @@ PagedAttention's primary motivation was solving memory fragmentation—its contr
 
 RadixAttention solves this with a **radix tree**: a global data structure for cross-request KV cache reuse over time. The tree works as follows:
 
-- Each **edge** is labeled with a sequence of tokens (compressed representation—edges with no branching are merged)
-- Each **node** stores a pointer to the KV cache blocks for the token sequence from root to that node
+- Each edge is labeled with a sequence of tokens (compressed representation—edges with no branching are merged)
+- Each node stores a pointer to the KV cache blocks for the token sequence from root to that node
 - To find a matching prefix, traverse from the root following edges that match the request's tokens
 - The traversal finds the longest matching prefix in O(n) time (where n is the request length)
 - An LRU eviction policy removes least-recently-used leaf nodes when memory fills up
@@ -399,7 +399,9 @@ This merge is mathematically equivalent to computing attention over all KV posit
 
 **Fewer memory loads:** Without composable formats, K, V from each shared page is loaded from global memory 7 times (once per query). With the shared prefix matrix (Br=7), K, V is loaded once into shared memory and reused across all 7 queries.
 
-More importantly, the matrix representation enables composable formats (above). Neither PagedAttention nor RadixAttention can do this on their own: PagedAttention has no mechanism to group queries sharing a prefix into a larger kernel tile, and RadixAttention identifies shared prefixes via its radix tree but each query still loads the shared KV from global memory independently. FlashInfer's block sparse matrix makes the sharing pattern explicit in the sparsity structure, enabling the kernel to load shared KV once and reuse it across queries.
+**Why a block sparse matrix, not a plain lookup table?** A simple list of pages per sequence (e.g., "sequence A needs pages [P0, P1, P2]") tells you *what* KV data to load, but says nothing about *how* to group the computation on the GPU. The "blocks" in "block sparse" are not just a storage format — they correspond directly to GPU kernel tiles. Br determines how many query positions a single thread block processes together (sharing loaded K/V), and Bc determines how many KV positions are loaded per tile (= page size). The block sparse matrix encodes both the logical attention pattern and the GPU execution strategy in a single structure. This is what makes composable formats possible: representing the same logical attention with different block sizes (Br=7 for the shared prefix, Br=1 for unique suffixes) changes the GPU execution strategy without changing the result.
+
+Neither PagedAttention nor RadixAttention can do this on their own: PagedAttention has no mechanism to group queries sharing a prefix into a larger kernel tile, and RadixAttention identifies shared prefixes via its radix tree but each query still loads the shared KV from global memory independently. FlashInfer's block sparse matrix makes the sharing pattern explicit in the sparsity structure, enabling the kernel to load shared KV once and reuse it across queries.
 
 ## FlashInfer's plan/run API
 
