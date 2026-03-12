@@ -26,6 +26,10 @@ function authorList(authors) {
 
 module.exports = {
     news:[
+        { 
+            title: "I will be interning at Google in summer 2026.",
+            date: "02-26-2026",
+        },
         {
             title: "Presenting poster about SABLE at MWPLS 2024.",
             date: "10-28-2024",
