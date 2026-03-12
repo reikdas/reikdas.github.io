@@ -23,6 +23,11 @@ h3 {
   line-height: 1.2;
 }
 
+h2 {
+  margin-top: 1.8rem;
+  margin-bottom: 0.8rem;
+}
+
 table {
   width: 100%;
   max-width: 100%;
@@ -50,6 +55,10 @@ td {
   flex-flow: wrap;
   align-items: center;
   justify-content: center;
+}
+.bio p {
+  margin-top: 0;
+  margin-bottom: 0.8rem;
 }
 
 @media (max-width: 800px) {
@@ -104,6 +113,43 @@ ul {
   flex-flow: wrap;
   align-items: center;
   justify-content: center;
+}
+
+.links {
+  margin-top: 0.3rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.95rem;
+}
+.links a {
+  margin: 0 0.1rem;
+}
+
+#news-section {
+  margin-bottom: 0.5rem;
+}
+
+#news-list .news-date {
+  white-space: nowrap;
+  padding-right: 1rem;
+  vertical-align: top;
+}
+#news-list tr td {
+  padding-bottom: 0.3rem;
+}
+
+#toggle-news {
+  background: none;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 0.3rem 0.8rem;
+  font-size: 0.9rem;
+  color: #555;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+#toggle-news:hover {
+  border-color: #0051c9;
+  color: #0051c9;
 }
 
 .site-nav {

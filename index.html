@@ -10,85 +10,112 @@
   <body>
     <div class="header">
       <h1 class="name" style="width: 100%; text-align: center">Pratyush Das</h1>
-      <div class="email" style="width: 100%; text-align: center">das160@purdue.edu</div>
+      <div class="email" style="width: 100%; text-align: center"><a href="mailto:das160@purdue.edu">das160@purdue.edu</a></div>
+      <div class="links" style="width: 100%; text-align: center">
+        <a href="https://github.com/reikdas/CV/raw/master/academic-cv.pdf">CV</a> /
+        <a href="https://github.com/reikdas">GitHub</a> /
+        <a href="https://scholar.google.com/citations?user=eUcy4BIAAAAJ&hl=en">Google Scholar</a> /
+        <a href="https://twitter.com/Reikdas">Twitter</a>
+      </div>
     </div>
 
     <div class="bio">
-        <p style="width:65%">
+        <div style="width:65%">
+        <p>
         I am a PhD student in Computer Science at Purdue University
-        studying compilers, advised by Professor 
+        studying compilers, advised by Professor
         <a href="https://engineering.purdue.edu/~milind/">Milind Kulkarni</a> and Professor <a href="https://www.cs.purdue.edu/homes/bendy/">Ben Delaware</a>.
-        <br/> <br/> 
+        </p>
+        <p>
         My research interests lie in using staging compilers to improve the
         performance of high performance systems. I have looked at improving the
-        performance of operations over files stored in distributed file systems 
+        performance of operations over files stored in distributed file systems
         (<a href="https://www.usenix.org/system/files/nsdi23-mustafa.pdf">NSDI'23</a>,
-         <a href="https://www.cs.purdue.edu/homes/rompf/papers/das-gpce24.pdf">GPCE'24</a>)
-        and I am currently looking into further extending the idea to speed up
-        sparse tensor computations (<a href="https://arxiv.org/abs/2407.00829">arxiv</a>).
-        <br/><br/>
-        During the summer of 2023, I interned
-        at Apple, working on a custom target and runtime for the Swift
-        programming language. 
-
-        As an undergrad, I interned with Princeton University for multiple
-        years, working on software for High Energy Physics. During this period,
-        I was a core developer of two software projects that found
-        significant adoption in the Physics community - 
-        <a href=https://awkward-array.org/quickstart.html>Awkward Array</a> (library for irregularly shaped tensor computations) and
-        <a href="https://uproot.readthedocs.io/en/latest/">uproot</a> (Python
-        re-implementation of I/O for physics motivated by interoperability
-        with other existing Python packages). I also made significant contributions
-        to the following LLVM based projects: 
-        <a href="https://enzyme.mit.edu/">Enzyme</a>,
-        <a href="https://root.cern/cling/">Cling</a> and 
-        <a href="https://clang.llvm.org/">Clang</a>.
-        <br/><br/>
-        My CV can be found 
-        <a href=https://github.com/reikdas/CV/raw/master/academic-cv.pdf>here</a>.
-        <br/><br/>
+         <a href="https://www.cs.purdue.edu/homes/rompf/papers/das-gpce24.pdf">GPCE'24</a>),
+        applied it to speed up sparse matrix computations (<a href="https://arxiv.org/abs/2407.00829">arXiv</a>)
+        and I am currently looking into further extending the idea to improve performance of LLM inference systems.
         </p>
-        <p style="width: 35%; text-align: center">
+        <p>
+        As an undergraduate, I interned with Princeton University for
+        multiple years. I was one of the founding engineers of
+        <a href=https://awkward-array.org/quickstart.html>Awkward Array</a> and
+        <a href="https://uproot.readthedocs.io/en/latest/">Uproot</a> — two
+        libraries that have become critical infrastructure for particle physics,
+        now used across all four major LHC experiments at CERN (ATLAS, CMS,
+        ALICE, LHCb), as well as dark matter (XENON-nT), gamma-ray (MAGIC),
+        and neutrino (IceCube) experiments worldwide. Uproot is the primary
+        Python interface to the over an exabyte of particle physics data stored
+        in the ROOT format; Awkward Array provides NumPy-like operations
+        over the irregular, nested data structures ubiquitous in physics analysis.
+        While working on these tools, I was featured in the 
+        <a href="https://www.princeton.edu/news/2019/08/19/princeton-leads-efforts-develop-national-data-training-framework-high-energy">Princeton University news</a>.
+        During this time, I also contributed to
+        <a href="https://clang.llvm.org/">Clang</a>,
+        <a href="https://root.cern/cling/">Cling</a> (an interactive C++
+        interpreter built on Clang, now upstreamed as Clang-repl), and
+        <a href="https://enzyme.mit.edu/">Enzyme</a> (an LLVM plugin for
+        automatic differentiation of native code).
+        </p>
+        <p>
+        I interned at Apple in summer 2023, working on a custom target and
+        runtime for the Swift programming language. In summer 2026, I will be
+        interning at Google.
+        </p>
+        </div>
+        <div style="width: 35%; text-align: center">
         <img src="assets/photo.png" style="width:80%;"/>
-        </p>
+        </div>
     </div>
     <h2>News</h2>
-    <div id="news-section" style="margin-left: 20px;>
-    <ul id="news-list">
+    <div id="news-section">
+    <table id="news-list">
         
-            <li class="news-item">
-                <strong>10-28-2024</strong>: Presenting poster about SABLE at MWPLS 2024.
-            </li>
+            <tr class="news-item">
+                <td class="news-date"><strong>02-26-2026</strong></td>
+                <td>I will be interning at Google in summer 2026.</td>
+            </tr>
         
-            <li class="news-item">
-                <strong>08-29-2024</strong>: Took over as a student co-ordinator of the Purdue Programming Languages group.
-            </li>
+            <tr class="news-item">
+                <td class="news-date"><strong>10-28-2024</strong></td>
+                <td>Presenting poster about SABLE at MWPLS 2024.</td>
+            </tr>
         
-            <li class="news-item">
-                <strong>08-15-2024</strong>: Our paper on specializing distributed storage accesses was accepted to GPCE 2024.
-            </li>
+            <tr class="news-item">
+                <td class="news-date"><strong>08-29-2024</strong></td>
+                <td>Took over as a student co-ordinator of the Purdue Programming Languages group.</td>
+            </tr>
         
-            <li class="news-item">
-                <strong>12-24-2022</strong>: I will be interning at Apple in summer 2023.
-            </li>
+            <tr class="news-item">
+                <td class="news-date"><strong>08-15-2024</strong></td>
+                <td>Our paper on specializing distributed storage accesses was accepted to GPCE 2024.</td>
+            </tr>
         
-            <li class="news-item">
-                <strong>12-09-2022</strong>: Our paper DiSh was accepted to NSDI 2023.
-            </li>
+            <tr class="news-item">
+                <td class="news-date"><strong>12-24-2022</strong></td>
+                <td>I will be interning at Apple in summer 2023.</td>
+            </tr>
         
-            <li class="news-item hidden">
-                <strong>11-07-2021</strong>: Will be giving a talk at the LLVM Developers&#39; Meeting 2022 about Enzyme.
-            </li>
+            <tr class="news-item hidden">
+                <td class="news-date"><strong>12-09-2022</strong></td>
+                <td>Our paper DiSh was accepted to NSDI 2023.</td>
+            </tr>
         
-            <li class="news-item hidden">
-                <strong>12-16-2021</strong>: Awkward Array is on the front page of Hacker News!
-            </li>
+            <tr class="news-item hidden">
+                <td class="news-date"><strong>11-07-2021</strong></td>
+                <td>Will be giving a talk at the LLVM Developers&#39; Meeting 2022 about Enzyme.</td>
+            </tr>
         
-            <li class="news-item hidden">
-                <strong>04-04-2021</strong>: Will start my PhD at Purdue University in Fall 2021.
-            </li>
+            <tr class="news-item hidden">
+                <td class="news-date"><strong>12-16-2021</strong></td>
+                <td>Awkward Array is on the front page of Hacker News!</td>
+            </tr>
         
-    </ul>
+            <tr class="news-item hidden">
+                <td class="news-date"><strong>04-04-2021</strong></td>
+                <td>Will start my PhD at Purdue University in Fall 2021.</td>
+            </tr>
+        
+    </table>
     
         <button id="toggle-news">Show More</button>
     
@@ -200,26 +227,12 @@
         </li>
       
     </ul>
-    <br>
     <h2>Teaching</h2>
     I have been a TA for the following courses at Purdue University: 
     <ul class="ta">
     <li>CS 307 (Software Engineering) - Spring 2025, Fall 2025</li>
     <li>CS 354 (Operating Systems) - Fall 2022, Spring 2023, Fall 2023, Spring 2024, Fall 2024, Spring 2026</li>
     <li>CS 240 (Programming in C) - Fall 2021, Spring 2022</li>
-    </ul>
-    
-    <h2>Featured</h2>
-    <ul class="misc">
-      
-        <li class="misc-item">
-          <p><span class="misc-title"><a href=https://iris-hep.org/2020/05/07/bei-wang-rse.html>Preparing the Large Hadron Collider for a Data Deluge</a></span></p>
-        </li>
-      
-        <li class="misc-item">
-          <p><span class="misc-title"><a href=https://www.princeton.edu/news/2019/08/19/princeton-leads-efforts-develop-national-data-training-framework-high-energy>Princeton leads efforts to develop national data training framework for high energy physics</a></span></p>
-        </li>
-      
     </ul>
     
     <h2>Thoughts and notes</h2>
