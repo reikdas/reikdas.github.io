@@ -2,6 +2,7 @@
 layout: blog-post.njk
 title: LLM Inference Primer (or fastest ramp-up to FlashInfer)
 date: 2026-01-21
+last_updated: 2026-03-02
 tags: posts
 ---
 ## Sequence Representation

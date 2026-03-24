@@ -7,6 +7,9 @@ layout: base.njk
     {% if date %}
     <time class="post-date">{{ date | date("%B %d, %Y") }}</time>
     {% endif %}
+    {% if last_updated %}
+    <time class="post-updated">Last updated: {{ last_updated | date("%B %d, %Y") }}</time>
+    {% endif %}
   </header>
   <div class="post-content">
     {{ content | safe }}
