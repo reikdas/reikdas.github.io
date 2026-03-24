@@ -237,6 +237,13 @@ ul {
   font-size: 0.9rem;
 }
 
+.post-updated {
+  display: block;
+  color: #666;
+  font-size: 0.85rem;
+  margin-top: 0.25rem;
+}
+
 .post-content h2 {
   margin-top: 2rem;
   margin-bottom: 1rem;
