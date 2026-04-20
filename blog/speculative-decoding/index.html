@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Speculative Decoding | Pratyush Das</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Blog by Pratyush Das">
+    <link rel="stylesheet" href="/css/main.css">
+  </head>
+  <body>
+    <article class="blog-post">
+  <header class="post-header">
+    <h1 class="post-title">Speculative Decoding</h1>
+    
+    <time class="post-date">March 24, 2026</time>
+    
+    
+  </header>
+  <div class="post-content">
+    <p>Standard autoregressive decoding generates one token per forward pass of the model. Each forward pass has the same cost regardless of whether the token is a predictable word like “the” or a surprising one. Leviathan et al.<sup class="footnote-ref"><a href="#fn1" id="fnref1">[1]</a></sup> and Chen et al.<sup class="footnote-ref"><a href="#fn2" id="fnref2">[2]</a></sup> independently observed that a small <strong>draft model</strong> can cheaply guess several tokens ahead, and a large <strong>target model</strong> can verify multiple guesses in parallel — turning sequential token generation into a bet on the draft model’s accuracy.</p>
+<p>The draft model is small and fast. The target model is large and slow — but a single forward pass of the target model can process multiple token positions in parallel (just like prefill). Speculative decoding exploits this:</p>
+<pre><code>Past sequence: [T1, T2, T3]
+
+Draft model (serial, but cheap):
+  A' = draft(T1, T2, T3)
+  B' = draft(T1, T2, T3, A')
+  C' = draft(T1, T2, T3, A', B')
+
+Target model (one parallel forward pass):
+  A = target(T1, T2, T3)         ← verify A'
+  B = target(T1, T2, T3, A')     ← verify B' (using draft's A')
+  C = target(T1, T2, T3, A', B') ← verify C' (using draft's A', B')
+</code></pre>
+<p>The key insight: the target model computes A, B, and C in parallel in a single forward pass. This is the same parallel computation the target model already does during prefill — processing multiple token positions at once. It takes the draft model’s guesses (A’, B’, C’) as input and produces the target distribution at each position simultaneously. Three tokens verified for roughly the cost of one.</p>
+<p><strong>Acceptance:</strong> The target model checks each draft token left to right:</p>
+<ul>
+<li>If A = A’: accept. Check B.</li>
+<li>If B = B’: accept. Check C.</li>
+<li>If C = C’: accept. All 3 tokens verified in one target forward pass.</li>
+</ul>
+<p><strong>Rejection:</strong> If any token doesn’t match, discard it and everything after it:</p>
+<ul>
+<li>If A ≠ A’: reject A’, B’, C’. Keep only A. (1 token from 1 target forward pass — no worse than standard decoding.)</li>
+<li>If A = A’ but B ≠ B’: reject B’, C’. Keep A, B. (2 tokens from 1 target forward pass.)</li>
+</ul>
+<p>In the best case, one expensive target forward pass produces multiple tokens. In the worst case, it produces exactly one — the same as standard decoding. Speculative decoding never makes things worse, it can only help.</p>
+<h2>Related</h2>
+<ul>
+<li>Google’s speculative decoding retrospective <sup class="footnote-ref"><a href="#fn3" id="fnref3">[3]</a></sup>.</li>
+</ul>
+<hr>
+<hr class="footnotes-sep">
+<section class="footnotes">
+<ol class="footnotes-list">
+<li id="fn1" class="footnote-item"><p>Leviathan, Y., Kalman, M., &amp; Matias, Y. (2023). <a href="https://arxiv.org/abs/2211.17192">Fast Inference from Transformers via Speculative Decoding</a>. <em>Proceedings of the 40th International Conference on Machine Learning (ICML)</em>. <a href="#fnref1" class="footnote-backref">↩︎</a></p>
+</li>
+<li id="fn2" class="footnote-item"><p>Chen, C., Borgeaud, S., Irving, G., Lespiau, J.-B., Sifre, L., &amp; Jumper, J. (2023). <a href="https://arxiv.org/abs/2302.01318">Accelerating Large Language Model Decoding with Speculative Sampling</a>. <em>Technical Report</em>. <a href="#fnref2" class="footnote-backref">↩︎</a></p>
+</li>
+<li id="fn3" class="footnote-item"><p>Leviathan, Y., Kalman, M., &amp; Matias, Y. (2024). <a href="https://research.google/blog/looking-back-at-speculative-decoding/">Looking back at speculative decoding</a>. <em>Google Research Blog</em>. <a href="#fnref3" class="footnote-backref">↩︎</a></p>
+</li>
+</ol>
+</section>
+
+  </div>
+  <footer class="post-footer">
+    <a href="/">&larr; Back to Home</a>
+  </footer>
+</article>
+
+  </body>
+</html>
