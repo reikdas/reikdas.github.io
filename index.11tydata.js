@@ -26,7 +26,11 @@ function authorList(authors) {
 
 module.exports = {
     news:[
-        { 
+        {
+            title: "Our paper on SABLE was conditionally accepted to CGO 2027.",
+            date: "08-04-2026",
+        },
+        {
             title: "I will be interning at Google in summer 2026.",
             date: "02-26-2026",
         },
@@ -64,6 +68,19 @@ module.exports = {
         }
     ],
     publications: [
+        {
+            title: "Bring Your Own Formats and Kernels: Composable Abstractions for Sparse Matrix Computation",
+            link: "https://arxiv.org/abs/2407.00829",
+            authors: authorList([
+                me,
+                "Amirhossein Basareh",
+                "Artem Pelenitsyn",
+                "Kirshanthan Sundararajah",
+                "Milind Kulkarni",
+                "Ben Delaware",
+            ]),
+            conference: "IEEE/ACM International Symposium on Code Generation and Optimization (CGO, 2027) - conditionally accepted",
+        },
         {
             title: "Specializing Data Access in a Distributed File System (Generative Pearl)",
             link: "https://www.cs.purdue.edu/homes/rompf/papers/das-gpce24.pdf",
@@ -132,6 +149,11 @@ module.exports = {
     drafts: [,
     ],
     talks: [{
+            title: "Staging Blocked Evaluation of Sparse Matrix Computations",
+            link: "https://purduepl.github.io/seminars/2026/2026-4-16-seminar",
+            location: "PurPL Seminar, 2026",
+        },
+        {
             title: "Specializing Data Access in a Distributed File System (Generative Pearl)",
             link: "https://www.youtube.com/watch?v=YeWCPRXWIuA",
             location: "GPCE, 2024",
