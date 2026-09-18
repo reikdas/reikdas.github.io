@@ -51,8 +51,8 @@
         experiments at CERN and beyond. Uproot is the primary Python interface to
         over an exabyte of particle physics data in the ROOT format; Awkward Array
         brings NumPy-like operations to the nested, irregular data common in
-        physics analysis. This work was featured in the
-        <a href="https://www.princeton.edu/news/2019/08/19/princeton-leads-efforts-develop-national-data-training-framework-high-energy">Princeton University news</a>.
+        physics analysis. I was featured in the
+        <a href="https://www.princeton.edu/news/2019/08/19/princeton-leads-efforts-develop-national-data-training-framework-high-energy">Princeton University news</a> for this work.
         During this time, I also contributed to <a href="https://clang.llvm.org/">Clang</a>,
         <a href="https://root.cern/cling/">Cling</a> (a C++ interpreter, now
         upstreamed as Clang-repl), and <a href="https://enzyme.mit.edu/">Enzyme</a>
@@ -69,7 +69,7 @@
         {% for item in news %}
             <tr class="news-item{% if loop.index > 5 %} hidden{% endif %}">
                 <td class="news-date"><strong>{{ item.date }}</strong></td>
-                <td>{{ item.title }}</td>
+                <td>{{ item.title | safe }}</td>
             </tr>
         {% endfor %}
     </table>

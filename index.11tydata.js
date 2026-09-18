@@ -27,7 +27,7 @@ function authorList(authors) {
 module.exports = {
     news:[
         {
-            title: "Our paper on SABLE was conditionally accepted to CGO 2027.",
+            title: "Our paper on SABLE was <s>conditionally</s> accepted to CGO 2027.",
             date: "08-04-2026",
         },
         {
@@ -79,7 +79,7 @@ module.exports = {
                 "Milind Kulkarni",
                 "Ben Delaware",
             ]),
-            conference: "IEEE/ACM International Symposium on Code Generation and Optimization (CGO, 2027) - conditionally accepted",
+            conference: "IEEE/ACM International Symposium on Code Generation and Optimization (CGO, 2027)",
         },
         {
             title: "Specializing Data Access in a Distributed File System (Generative Pearl)",
